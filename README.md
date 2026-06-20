@@ -19,6 +19,12 @@ Controls: space = play/pause · ←/→ = seek · 0 = restart · drag the scrubb
 `1m` / `2m` / `3m` set how long the whole film plays over · 🔊 toggles the
 generated soundtrack.
 
+The chrome stays minimal during playback — only play/pause, the progress bar,
+and the sound toggle are shown. **Hover** the control area (or pause) to reveal
+everything else: the loop, replay, restart and length buttons, the timecode,
+and the chapter nav. To the left of play sit a **loop** button (cycles play
+once → 3× → ∞) and a **replay** button (restart from the top).
+
 ### Watch vs. explore
 
 The film opens by playing through on its own (the *intro*). The moment you

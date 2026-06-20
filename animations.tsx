@@ -389,6 +389,7 @@ interface StageProps {
   timelineDuration?: number;  // authored timeline length scenes are written against (defaults to `duration`)
   durations?: number[];       // selectable playback lengths; shows a length control in the bar
   chapters?: StageChapter[];  // named regions (authored seconds); shows chapter nav + track markers
+  loopModes?: ('once' | 'three' | 'inf')[]; // cycle order for the loop button (shows it when set)
   background?: string;
   fps?: number;
   loop?: boolean;
@@ -404,6 +405,7 @@ function Stage({
   timelineDuration,
   durations,
   chapters,
+  loopModes,
   background = '#f6f4ef',
   fps = 60,
   loop = true,
@@ -437,11 +439,21 @@ function Stage({
   // the end hands control to the viewer ('interactive').
   const [mode, setMode] = React.useState<'intro' | 'interactive'>(autoplay ? 'intro' : 'interactive');
 
+  // Minimal chrome: extra controls reveal on hover (and whenever paused).
+  const [barHover, setBarHover] = React.useState<boolean>(false);
+
+  // Loop behaviour at end of playback: once / 3× / infinite.
+  const [loopMode, setLoopMode] = React.useState<'once' | 'three' | 'inf'>(
+    () => (loopModes && loopModes.length ? loopModes[0] : (loop ? 'inf' : 'once'))
+  );
+
   const stageRef = React.useRef<HTMLDivElement | null>(null);
   const canvasRef = React.useRef<HTMLDivElement | null>(null);
   const rafRef = React.useRef<number | null>(null);
   const lastTsRef = React.useRef<number | null>(null);
   const playUntilRef = React.useRef<number | null>(null); // wall-time to pause at (chapter replay)
+  const loopModeRef = React.useRef(loopMode); loopModeRef.current = loopMode;
+  const passesRef = React.useRef<number>(0); // completed passes in the current run
 
   // Persist playhead
   React.useEffect(() => {
@@ -501,18 +513,22 @@ function Stage({
           return stopAt;
         }
         if (next >= duration) {
+          const lm = loopModeRef.current;
+          if (lm === 'inf') return next % duration;                       // loop forever
+          passesRef.current += 1;
+          if (lm === 'three' && passesRef.current < 3) return next % duration; // play 3× total
+          passesRef.current = 0;
+          setPlaying(false);
           if (chapters && chapters.length) {
-            // End of the linear intro → hand control to the viewer, resting on
-            // the closing chapter's poster rather than a black frame.
-            const last = chapters[chapters.length - 1];
-            setPlaying(false);
+            // Hand control to the viewer, resting on the closing chapter's
+            // poster rather than a black frame.
             setMode('interactive');
+            const last = chapters[chapters.length - 1];
             return last.poster != null
               ? clamp(last.poster * (duration / timeline), 0, duration)
               : duration;
           }
-          if (loop) next = next % duration;
-          else { next = duration; setPlaying(false); }
+          return duration;
         }
         return next;
       });
@@ -569,6 +585,7 @@ function Stage({
   const seekFilm = React.useCallback(
     (filmSec: number, opts: { play?: boolean; until?: number | null } = {}) => {
       playUntilRef.current = opts.until != null ? toWall(opts.until) : null;
+      passesRef.current = 0;
       setMode('interactive');
       setTime(toWall(filmSec));
       setPlaying(!!opts.play);
@@ -579,6 +596,7 @@ function Stage({
   // Dragging the scrub track (wall-clock) drops into interactive and pauses.
   const seekWall = React.useCallback((wt: number) => {
     playUntilRef.current = null;
+    passesRef.current = 0;
     setMode('interactive');
     setTime(clamp(wt, 0, duration));
     setPlaying(false);
@@ -594,12 +612,27 @@ function Stage({
 
   const selectChapter = (i: number) => {
     const c = chapters![i];
-    seekFilm(c.poster != null ? c.poster : c.start, { play: false });
+    // Playing → continue playing from the chapter's start; paused → just move
+    // the playhead to a representative still and stay paused.
+    if (playing) seekFilm(c.start, { play: true });
+    else seekFilm(c.poster != null ? c.poster : c.start, { play: false });
   };
   const replayChapter = () => {
     const c = chapters![activeChapter];
     seekFilm(c.start, { play: true, until: Math.max(c.start + 0.5, c.end - 0.7) });
   };
+
+  // Loop button: cycle once → 3× → ∞ (in the configured order).
+  const cycleLoop = () => {
+    const order = (loopModes && loopModes.length ? loopModes : ['once', 'three', 'inf']) as ('once' | 'three' | 'inf')[];
+    passesRef.current = 0;
+    setLoopMode(order[(order.indexOf(loopMode) + 1) % order.length]);
+  };
+  // Replay button: restart from the top and play.
+  const replayAll = () => { passesRef.current = 0; seekFilm(0, { play: true }); };
+
+  // Reveal extra controls on hover; always show them while paused.
+  const revealed = barHover || !playing;
 
   const chapterMarks = chapters
     ? chapters
@@ -645,33 +678,44 @@ function Stage({
         </div>
       </div>
 
-      {/* Chapter navigation — only when chapters are provided */}
-      {chapters && chapters.length > 0 && (
-        <ChapterNav
-          chapters={chapters}
-          active={activeChapter}
-          mode={mode}
-          onSelect={selectChapter}
-          onReplay={replayChapter}
-        />
-      )}
+      {/* Bottom chrome — extra controls reveal on hover (and while paused) */}
+      <div
+        onMouseEnter={() => setBarHover(true)}
+        onMouseLeave={() => setBarHover(false)}
+        style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}
+      >
+        {chapters && chapters.length > 0 && (
+          <ChapterNav
+            chapters={chapters}
+            active={activeChapter}
+            mode={mode}
+            revealed={revealed}
+            onSelect={selectChapter}
+            onReplay={replayChapter}
+          />
+        )}
 
-      {/* Playback bar — stacked below canvas, never overlapping */}
-      <PlaybackBar
-        time={displayTime}
-        actualTime={time}
-        duration={duration}
-        durations={durations}
-        onDurationChange={changeDuration}
-        marks={chapterMarks}
-        activeMark={activeChapter}
-        onMark={selectChapter}
-        playing={playing}
-        onPlayPause={() => setPlaying((p: boolean) => !p)}
-        onReset={() => { setTime(0); }}
-        onSeek={seekWall}
-        onHover={(t: number | null) => setHoverTime(t)}
-      />
+        {/* Playback bar — stacked below canvas, never overlapping */}
+        <PlaybackBar
+          time={displayTime}
+          actualTime={time}
+          duration={duration}
+          durations={durations}
+          onDurationChange={changeDuration}
+          marks={chapterMarks}
+          activeMark={activeChapter}
+          onMark={selectChapter}
+          revealed={revealed}
+          loopMode={loopModes ? loopMode : undefined}
+          onLoopCycle={cycleLoop}
+          onReplayAll={replayAll}
+          playing={playing}
+          onPlayPause={() => setPlaying((p: boolean) => !p)}
+          onReset={() => { passesRef.current = 0; setTime(0); }}
+          onSeek={seekWall}
+          onHover={(t: number | null) => setHoverTime(t)}
+        />
+      </div>
     </div>
   );
 }
@@ -687,6 +731,10 @@ interface PlaybackBarProps {
   marks?: { pct: number; index: number }[];
   activeMark?: number;
   onMark?: (index: number) => void;
+  revealed?: boolean;
+  loopMode?: 'once' | 'three' | 'inf';
+  onLoopCycle?: () => void;
+  onReplayAll?: () => void;
   playing: boolean;
   onPlayPause: () => void;
   onReset: () => void;
@@ -694,7 +742,7 @@ interface PlaybackBarProps {
   onHover: (t: number | null) => void;
 }
 
-function PlaybackBar({ time, duration, durations, onDurationChange, marks, activeMark, onMark, playing, onPlayPause, onReset, onSeek, onHover }: PlaybackBarProps) {
+function PlaybackBar({ time, duration, durations, onDurationChange, marks, activeMark, onMark, revealed = true, loopMode, onLoopCycle, onReplayAll, playing, onPlayPause, onReset, onSeek, onHover }: PlaybackBarProps) {
   const trackRef = React.useRef<HTMLDivElement | null>(null);
   const [dragging, setDragging] = React.useState<boolean>(false);
 
@@ -768,11 +816,29 @@ function PlaybackBar({ time, duration, durations, onDurationChange, marks, activ
       userSelect: 'none',
       flexShrink: 0,
     }}>
-      <IconButton onClick={onReset} title="Return to start (0)">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M3 2v10M12 2L5 7l7 5V2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round"/>
-        </svg>
-      </IconButton>
+      {/* Left cluster — revealed on hover: loop · replay · restart */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden',
+        maxWidth: revealed ? 160 : 0, opacity: revealed ? 1 : 0,
+        pointerEvents: revealed ? 'auto' : 'none',
+        transition: 'max-width 260ms ease, opacity 200ms ease',
+      }}>
+        {loopMode && onLoopCycle && <LoopButton mode={loopMode} onClick={onLoopCycle} />}
+        {onReplayAll && (
+          <IconButton onClick={onReplayAll} title="Replay from the start">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+              <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v5h-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </IconButton>
+        )}
+        <IconButton onClick={onReset} title="Return to start (0)">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M3 2v10M12 2L5 7l7 5V2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round"/>
+          </svg>
+        </IconButton>
+      </div>
+
+      {/* Play / pause — always visible */}
       <IconButton onClick={onPlayPause} title="Play/pause (space)">
         {playing ? (
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -786,13 +852,16 @@ function PlaybackBar({ time, duration, durations, onDurationChange, marks, activ
         )}
       </IconButton>
 
-      {/* Current time: fixed width so it doesn't thrash */}
+      {/* Current time — revealed on hover */}
       <div style={{
         fontFamily: mono,
         fontSize: 12,
         fontVariantNumeric: 'tabular-nums',
         width: 64, textAlign: 'right',
-        color: '#f6f4ef',
+        color: '#f6f4ef', overflow: 'hidden',
+        maxWidth: revealed ? 64 : 0,
+        opacity: revealed ? 1 : 0,
+        transition: 'max-width 260ms ease, opacity 200ms ease',
       }}>
         {fmt(time)}
       </div>
@@ -851,21 +920,69 @@ function PlaybackBar({ time, duration, durations, onDurationChange, marks, activ
         }}/>
       </div>
 
-      {/* Total length: a selector when `durations` is given, else a readout */}
-      {durations && durations.length > 0 && onDurationChange ? (
-        <DurationSelect value={duration} options={durations} onChange={onDurationChange} />
-      ) : (
-        <div style={{
-          fontFamily: mono,
-          fontSize: 12,
-          fontVariantNumeric: 'tabular-nums',
-          width: 64, textAlign: 'left',
-          color: 'rgba(246,244,239,0.55)',
-        }}>
-          {fmt(duration)}
-        </div>
-      )}
+      {/* Total length — revealed on hover */}
+      <div style={{
+        display: 'flex', alignItems: 'center', overflow: 'hidden',
+        maxWidth: revealed ? 200 : 0, opacity: revealed ? 1 : 0,
+        pointerEvents: revealed ? 'auto' : 'none',
+        transition: 'max-width 260ms ease, opacity 200ms ease',
+      }}>
+        {durations && durations.length > 0 && onDurationChange ? (
+          <DurationSelect value={duration} options={durations} onChange={onDurationChange} />
+        ) : (
+          <div style={{
+            fontFamily: mono,
+            fontSize: 12,
+            fontVariantNumeric: 'tabular-nums',
+            width: 64, textAlign: 'left',
+            color: 'rgba(246,244,239,0.55)',
+          }}>
+            {fmt(duration)}
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+// ── Loop button: cycle play-once / 3× / forever ──────────────────────────────
+
+interface LoopButtonProps { mode: 'once' | 'three' | 'inf'; onClick: () => void; }
+
+function LoopButton({ mode, onClick }: LoopButtonProps) {
+  const count = mode === 'inf' ? '∞' : mode === 'three' ? '3' : '1';
+  const active = mode !== 'once';
+  const title = mode === 'inf'
+    ? 'Looping forever — click to play once'
+    : mode === 'three'
+      ? 'Looping 3× — click to loop forever'
+      : 'Plays once — click to loop 3×';
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      style={{
+        position: 'relative', width: 30, height: 28,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: active ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6,
+        color: '#f6f4ef', opacity: active ? 1 : 0.72, cursor: 'pointer', padding: 0,
+      }}
+    >
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+        <path d="M17 2l3.5 3.5L17 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M3 11.5V9.5a4 4 0 0 1 4-4h13.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M7 22l-3.5-3.5L7 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M21 12.5v2a4 4 0 0 1-4 4H3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+      <span style={{
+        position: 'absolute', right: 0, bottom: 0,
+        fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+        fontSize: 9, fontWeight: 700, lineHeight: 1, color: '#f6f4ef',
+        background: 'rgba(20,20,20,0.96)', borderRadius: 3, padding: '1px 1px 0',
+      }}>{count}</span>
+    </button>
   );
 }
 
@@ -875,17 +992,21 @@ interface ChapterNavProps {
   chapters: StageChapter[];
   active: number;
   mode: 'intro' | 'interactive';
+  revealed?: boolean;
   onSelect: (i: number) => void;
   onReplay: () => void;
 }
 
-function ChapterNav({ chapters, active, mode, onSelect, onReplay }: ChapterNavProps) {
+function ChapterNav({ chapters, active, mode, revealed = true, onSelect, onReplay }: ChapterNavProps) {
   const sans = "'Helvetica Neue', Helvetica, Arial, sans-serif";
   return (
     <div style={{
       width: '100%', maxWidth: 680, alignSelf: 'center', boxSizing: 'border-box',
       display: 'flex', alignItems: 'center', gap: 12,
       padding: '6px 18px 10px', flexShrink: 0, userSelect: 'none',
+      opacity: revealed ? 1 : 0,
+      pointerEvents: revealed ? 'auto' : 'none',
+      transition: 'opacity 220ms ease',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
         {chapters.map((c, i) => {

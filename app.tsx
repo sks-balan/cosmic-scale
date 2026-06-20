@@ -89,7 +89,7 @@ const prefersReducedMotion =
 ReactDOM.createRoot(document.getElementById('root')).render(
   <Stage width={1920} height={1080}
          duration={60} timelineDuration={60} durations={[60, 120, 180]}
-         chapters={CHAPTERS}
+         chapters={CHAPTERS} loopModes={['once', 'three', 'inf']}
          background="#0a0a0a" persistKey="cosmic" autoplay={!prefersReducedMotion}>
     <CosmicFilm />
   </Stage>
