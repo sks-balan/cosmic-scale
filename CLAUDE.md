@@ -34,10 +34,11 @@ top to reference them. Load order matters and is fixed in the HTML:
 ## Files
 | File | Role |
 | --- | --- |
-| `animations.tsx` | Timeline engine: `Stage`, `Sprite`, `useTime`/`useSprite`, `Easing`, `interpolate`, `animate`, `clamp`, scrubber/playback. Reusable starter — avoid gratuitous edits. |
+| `animations.tsx` | Timeline engine: `Stage`, `Sprite`, `useTime`/`useSprite`, `Easing`, `interpolate`, `animate`, `clamp`, scrubber/playback, `ChapterNav`. Reusable starter — avoid gratuitous edits. |
 | `bodies.tsx` | Visual primitives + palette tokens (`INK/DIM/SOFT/FAINT`, `FONT`): `Disc`, `Ring`, `Label`, `Kicker`, `Counter`, `DashLine`, `Tick`, `Starfield`, `Scene`. |
 | `scenes.tsx` | The seven scene components + `Head` (staggered headline). Each scene reads `localTime` from its `<Scene>`. |
-| `app.tsx` | `CUES` cue sheet (start/end per scene), `ScreenLabel` (timestamp for comments), mounts `<Stage>`. |
+| `audio.tsx` | `AudioTrack` — generative Web Audio soundtrack (synthesized, no files). Harmony follows film-time via `SCORE` in `app.tsx`. |
+| `app.tsx` | `CUES` cue sheet, `CHAPTERS`, `SCORE`, `ScreenLabel`, mounts `<Stage>`. |
 | `index.html` | Entry point + Babel TSX preset registration. |
 
 ## Authoring conventions
@@ -47,6 +48,19 @@ top to reference them. Load order matters and is fixed in the HTML:
 - **Playback length is user-selectable** (`durations={[60,120,180]}` in `app.tsx`, surfaced as the `1m/2m/3m` control). The engine *time-stretches* the authored 60s onto the chosen wall-clock length — scene code never changes. Internally `time` advances in wall-clock; `Stage` maps it back to authored seconds before scenes see it, so everything (motion, twinkle, counters) slows uniformly.
 - Palette is strictly monochrome grays on `#0a0a0a`. Don't introduce hues.
 - Bodies are CSS circles (`Disc`), never SVG illustration.
+
+## Playback flow (hybrid intro + chapters)
+`Stage` runs a small state machine: **`intro`** auto-plays from 0; **`interactive`**
+(scrub, chapter pick, or reaching the end) pauses and hands the viewer control —
+the film never loops once `chapters` is set.
+- `chapters={CHAPTERS}` (in `app.tsx`) defines named regions in authored seconds:
+  `{ label, start, end, poster }`. `poster` is the still a chapter rests on when
+  selected / at the end (chosen so the scene is fully revealed, not mid-fade).
+- `ChapterNav` (label row + Replay) sits above the bar; chapter `start`s also show
+  as dots on the scrub track. Selecting snaps to `poster` (paused); **Replay**
+  plays `start → end-0.7` then auto-pauses (via `Stage`'s `playUntilRef`).
+- All chapter times are **authored seconds**; `Stage` converts to wall-clock with
+  `toWall`, so chapters work unchanged at any selected playback length.
 
 ## Good next tasks
 - Add a 9:16 vertical variant (swap `Stage` width/height + reflow scene coords).

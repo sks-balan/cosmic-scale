@@ -380,12 +380,15 @@ function RectSprite({
   );
 }
 
+interface StageChapter { label: string; start: number; end: number; poster?: number }
+
 interface StageProps {
   width?: number;
   height?: number;
   duration?: number;          // initial playback (wall-clock) length
   timelineDuration?: number;  // authored timeline length scenes are written against (defaults to `duration`)
   durations?: number[];       // selectable playback lengths; shows a length control in the bar
+  chapters?: StageChapter[];  // named regions (authored seconds); shows chapter nav + track markers
   background?: string;
   fps?: number;
   loop?: boolean;
@@ -400,6 +403,7 @@ function Stage({
   duration: baseDuration = 10,
   timelineDuration,
   durations,
+  chapters,
   background = '#f6f4ef',
   fps = 60,
   loop = true,
@@ -429,10 +433,15 @@ function Stage({
   const [hoverTime, setHoverTime] = React.useState<number | null>(null);
   const [scale, setScale] = React.useState<number>(1);
 
+  // Flow state: 'intro' auto-plays from 0; any scrub, chapter pick, or reaching
+  // the end hands control to the viewer ('interactive').
+  const [mode, setMode] = React.useState<'intro' | 'interactive'>(autoplay ? 'intro' : 'interactive');
+
   const stageRef = React.useRef<HTMLDivElement | null>(null);
   const canvasRef = React.useRef<HTMLDivElement | null>(null);
   const rafRef = React.useRef<number | null>(null);
   const lastTsRef = React.useRef<number | null>(null);
+  const playUntilRef = React.useRef<number | null>(null); // wall-time to pause at (chapter replay)
 
   // Persist playhead
   React.useEffect(() => {
@@ -455,7 +464,7 @@ function Stage({
     if (!stageRef.current) return;
     const el = stageRef.current;
     const measure = () => {
-      const barH = 44; // playback bar height
+      const barH = chapters && chapters.length ? 86 : 44; // chrome height (chapter nav + bar)
       const s = Math.min(
         el.clientWidth / width,
         (el.clientHeight - barH) / height
@@ -470,7 +479,7 @@ function Stage({
       ro.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, [width, height]);
+  }, [width, height, chapters]);
 
   // Animation loop
   React.useEffect(() => {
@@ -484,7 +493,24 @@ function Stage({
       lastTsRef.current = ts;
       setTime((t: number) => {
         let next = t + dt;
+        // Section replay: stop exactly at the requested wall-time.
+        const stopAt = playUntilRef.current;
+        if (stopAt != null && next >= stopAt) {
+          playUntilRef.current = null;
+          setPlaying(false);
+          return stopAt;
+        }
         if (next >= duration) {
+          if (chapters && chapters.length) {
+            // End of the linear intro → hand control to the viewer, resting on
+            // the closing chapter's poster rather than a black frame.
+            const last = chapters[chapters.length - 1];
+            setPlaying(false);
+            setMode('interactive');
+            return last.poster != null
+              ? clamp(last.poster * (duration / timeline), 0, duration)
+              : duration;
+          }
           if (loop) next = next % duration;
           else { next = duration; setPlaying(false); }
         }
@@ -497,7 +523,7 @@ function Stage({
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       lastTsRef.current = null;
     };
-  }, [playing, duration, loop]);
+  }, [playing, duration, loop, chapters, timeline]);
 
   // Keyboard: space = play/pause, ← → = seek
   React.useEffect(() => {
@@ -531,6 +557,55 @@ function Stage({
     () => ({ time: filmTime, duration: timeline, playing, setTime, setPlaying }),
     [filmTime, timeline, playing]
   );
+
+  // ── Hybrid flow: scrubbing / chapter selection / section replay ─────────────
+  // Convert authored (film) seconds to wall-clock at the current length.
+  const toWall = React.useCallback(
+    (filmSec: number) => clamp(filmSec * (duration / timeline), 0, duration),
+    [duration, timeline]
+  );
+
+  // Seek by authored seconds and hand control to the viewer.
+  const seekFilm = React.useCallback(
+    (filmSec: number, opts: { play?: boolean; until?: number | null } = {}) => {
+      playUntilRef.current = opts.until != null ? toWall(opts.until) : null;
+      setMode('interactive');
+      setTime(toWall(filmSec));
+      setPlaying(!!opts.play);
+    },
+    [toWall]
+  );
+
+  // Dragging the scrub track (wall-clock) drops into interactive and pauses.
+  const seekWall = React.useCallback((wt: number) => {
+    playUntilRef.current = null;
+    setMode('interactive');
+    setTime(clamp(wt, 0, duration));
+    setPlaying(false);
+  }, [duration]);
+
+  // Active chapter from the current authored time.
+  let activeChapter = 0;
+  if (chapters) {
+    for (let i = 0; i < chapters.length; i++) {
+      if (filmTime >= chapters[i].start - 0.001) activeChapter = i;
+    }
+  }
+
+  const selectChapter = (i: number) => {
+    const c = chapters![i];
+    seekFilm(c.poster != null ? c.poster : c.start, { play: false });
+  };
+  const replayChapter = () => {
+    const c = chapters![activeChapter];
+    seekFilm(c.start, { play: true, until: Math.max(c.start + 0.5, c.end - 0.7) });
+  };
+
+  const chapterMarks = chapters
+    ? chapters
+        .map((c, i) => ({ pct: timeline > 0 ? c.start / timeline : 0, index: i }))
+        .filter((m) => m.pct > 0.002)
+    : undefined;
 
   return (
     <div
@@ -570,6 +645,17 @@ function Stage({
         </div>
       </div>
 
+      {/* Chapter navigation — only when chapters are provided */}
+      {chapters && chapters.length > 0 && (
+        <ChapterNav
+          chapters={chapters}
+          active={activeChapter}
+          mode={mode}
+          onSelect={selectChapter}
+          onReplay={replayChapter}
+        />
+      )}
+
       {/* Playback bar — stacked below canvas, never overlapping */}
       <PlaybackBar
         time={displayTime}
@@ -577,10 +663,13 @@ function Stage({
         duration={duration}
         durations={durations}
         onDurationChange={changeDuration}
+        marks={chapterMarks}
+        activeMark={activeChapter}
+        onMark={selectChapter}
         playing={playing}
         onPlayPause={() => setPlaying((p: boolean) => !p)}
         onReset={() => { setTime(0); }}
-        onSeek={(t: number) => setTime(t)}
+        onSeek={seekWall}
         onHover={(t: number | null) => setHoverTime(t)}
       />
     </div>
@@ -595,6 +684,9 @@ interface PlaybackBarProps {
   duration: number;
   durations?: number[];
   onDurationChange?: (d: number) => void;
+  marks?: { pct: number; index: number }[];
+  activeMark?: number;
+  onMark?: (index: number) => void;
   playing: boolean;
   onPlayPause: () => void;
   onReset: () => void;
@@ -602,7 +694,7 @@ interface PlaybackBarProps {
   onHover: (t: number | null) => void;
 }
 
-function PlaybackBar({ time, duration, durations, onDurationChange, playing, onPlayPause, onReset, onSeek, onHover }: PlaybackBarProps) {
+function PlaybackBar({ time, duration, durations, onDurationChange, marks, activeMark, onMark, playing, onPlayPause, onReset, onSeek, onHover }: PlaybackBarProps) {
   const trackRef = React.useRef<HTMLDivElement | null>(null);
   const [dragging, setDragging] = React.useState<boolean>(false);
 
@@ -732,6 +824,21 @@ function PlaybackBar({ time, duration, durations, onDurationChange, playing, onP
           background: 'rgba(246,244,239,0.85)',
           borderRadius: 2,
         }}/>
+        {marks && marks.map((m) => (
+          <div
+            key={m.index}
+            onMouseDown={(e: any) => { e.stopPropagation(); if (onMark) onMark(m.index); }}
+            title="Jump to chapter"
+            style={{
+              position: 'absolute', left: `${m.pct * 100}%`, top: '50%',
+              width: 8, height: 8, marginLeft: -4, marginTop: -4,
+              borderRadius: '50%',
+              background: m.index === activeMark ? '#fff' : 'rgba(246,244,239,0.5)',
+              boxShadow: '0 0 0 2px rgba(20,20,20,0.92)',
+              cursor: 'pointer', zIndex: 2,
+            }}
+          />
+        ))}
         <div style={{
           position: 'absolute',
           left: `${pct}%`, top: '50%',
@@ -740,6 +847,7 @@ function PlaybackBar({ time, duration, durations, onDurationChange, playing, onP
           background: '#fff',
           borderRadius: 6,
           boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
+          zIndex: 3,
         }}/>
       </div>
 
@@ -757,6 +865,78 @@ function PlaybackBar({ time, duration, durations, onDurationChange, playing, onP
           {fmt(duration)}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Chapter navigation: low-profile, monochrome scene index ──────────────────
+
+interface ChapterNavProps {
+  chapters: StageChapter[];
+  active: number;
+  mode: 'intro' | 'interactive';
+  onSelect: (i: number) => void;
+  onReplay: () => void;
+}
+
+function ChapterNav({ chapters, active, mode, onSelect, onReplay }: ChapterNavProps) {
+  const sans = "'Helvetica Neue', Helvetica, Arial, sans-serif";
+  return (
+    <div style={{
+      width: '100%', maxWidth: 680, alignSelf: 'center', boxSizing: 'border-box',
+      display: 'flex', alignItems: 'center', gap: 12,
+      padding: '6px 18px 10px', flexShrink: 0, userSelect: 'none',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
+        {chapters.map((c, i) => {
+          const on = i === active;
+          return (
+            <button
+              key={i}
+              onClick={() => onSelect(i)}
+              aria-current={on ? 'true' : undefined}
+              title={`Go to “${c.label}”`}
+              style={{
+                background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 7,
+                fontFamily: sans, fontSize: 11, fontWeight: on ? 700 : 500,
+                letterSpacing: '0.18em', textTransform: 'uppercase', whiteSpace: 'nowrap',
+                color: on ? '#f6f4ef' : 'rgba(246,244,239,0.4)',
+                transition: 'color 200ms',
+              }}
+            >
+              <span style={{
+                width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+                background: on ? '#f6f4ef' : 'rgba(246,244,239,0.28)',
+                transition: 'background 200ms',
+              }} />
+              {c.label}
+            </button>
+          );
+        })}
+      </div>
+      <button
+        onClick={onReplay}
+        title="Replay this chapter from the start"
+        aria-label="Replay this chapter"
+        style={{
+          flexShrink: 0, display: 'flex', alignItems: 'center', gap: 7,
+          opacity: mode === 'interactive' ? 1 : 0,
+          pointerEvents: mode === 'interactive' ? 'auto' : 'none',
+          transition: 'opacity 240ms, background 160ms',
+          background: 'rgba(246,244,239,0.06)',
+          border: '1px solid rgba(246,244,239,0.18)', borderRadius: 6,
+          padding: '5px 11px', cursor: 'pointer',
+          fontFamily: sans, fontSize: 10.5, fontWeight: 600,
+          letterSpacing: '0.16em', textTransform: 'uppercase', whiteSpace: 'nowrap',
+          color: '#f6f4ef',
+        }}
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+          <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v5h-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Replay
+      </button>
     </div>
   );
 }

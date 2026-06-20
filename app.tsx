@@ -29,6 +29,15 @@ const CUES: Cue[] = [
   { start: 53, end: 60, Comp: S7Close },
 ];
 
+// Four chapters grouping the seven scenes. `poster` is the still each chapter
+// rests on when selected/at the end; times are authored (film) seconds.
+const CHAPTERS = [
+  { label: 'Our Neighborhood',  start: 0,  end: 16, poster: 12 },
+  { label: 'Our Star',          start: 16, end: 33, poster: 22 },
+  { label: 'Giants & Distance', start: 33, end: 53, poster: 40 },
+  { label: 'Closing',           start: 53, end: 60, poster: 58 },
+];
+
 // Generative score, in the key of D — one harmony per scene, building an arc
 // (D · D · A · Bm · G · Em) that resolves home to D at the close. `at` is
 // film-time, so it tracks the scenes at any playback length. Synthesized in
@@ -80,6 +89,7 @@ const prefersReducedMotion =
 ReactDOM.createRoot(document.getElementById('root')).render(
   <Stage width={1920} height={1080}
          duration={60} timelineDuration={60} durations={[60, 120, 180]}
+         chapters={CHAPTERS}
          background="#0a0a0a" persistKey="cosmic" autoplay={!prefersReducedMotion}>
     <CosmicFilm />
   </Stage>

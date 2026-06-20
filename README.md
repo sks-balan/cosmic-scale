@@ -16,17 +16,34 @@ python3 -m http.server 8000
 ```
 
 Controls: space = play/pause · ←/→ = seek · 0 = restart · drag the scrubber ·
-`1m` / `2m` / `3m` set how long the whole film plays over.
+`1m` / `2m` / `3m` set how long the whole film plays over · 🔊 toggles the
+generated soundtrack.
+
+### Watch vs. explore
+
+The film opens by playing through on its own (the *intro*). The moment you
+pick a chapter, drag the scrubber, or it reaches the end, it hands you control
+(*interactive*): playback pauses and you can explore at your own pace. The four
+chapters group the seven scenes:
+
+1. **Our Neighborhood** — title, every planet between Earth & Moon
+2. **Our Star** — the Sun, the speed of light
+3. **Giants & Distance** — Jupiter, the nearest star
+4. **Closing**
+
+Click a chapter (or its dot on the track) to jump to it; **Replay** plays just
+the current chapter, then rests on its still.
 
 ## Structure
 
 | File | Role |
 | --- | --- |
 | `index.html` | Entry point — loads React, Babel, and the TSX sources |
-| `animations.tsx` | Timeline engine: `Stage`, `Sprite`, easing, scrubber |
+| `animations.tsx` | Timeline engine: `Stage`, `Sprite`, easing, scrubber, chapter nav |
 | `bodies.tsx` | Celestial primitives: `Disc`, `Ring`, `Label`, `Counter`, `Starfield`, `Scene` |
 | `scenes.tsx` | The seven fun-fact scenes |
-| `app.tsx` | Cue sheet + composition |
+| `audio.tsx` | Generative Web Audio soundtrack (`AudioTrack`) |
+| `app.tsx` | Cue sheet + chapters + score + composition |
 
 ## Scenes
 
