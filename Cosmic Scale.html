@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cosmic Scale</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: #0a0a0a; overflow: hidden; }
+  #root { position: absolute; inset: 0; }
+  /* Helvetica everywhere */
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+</style>
+
+<!-- React + Babel (pinned) -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- Register a TSX preset so Babel transpiles TypeScript + JSX in the browser -->
+<script>
+  Babel.registerPreset('tsx', {
+    presets: [
+      [Babel.availablePresets.typescript, { allExtensions: true, isTSX: true, onlyRemoveTypeImports: true }],
+      Babel.availablePresets.react,
+    ],
+  });
+</script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- TypeScript sources, transpiled at load time -->
+  <script type="text/babel" data-presets="tsx" src="animations.tsx"></script>
+  <script type="text/babel" data-presets="tsx" src="bodies.tsx"></script>
+  <script type="text/babel" data-presets="tsx" src="scenes.tsx"></script>
+  <script type="text/babel" data-presets="tsx" src="app.tsx"></script>
+</body>
+</html>
