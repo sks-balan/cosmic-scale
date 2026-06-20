@@ -5,17 +5,17 @@ Context for AI agents (and humans) working on this repo.
 ## What this is
 A 60-second, build-free sprite animation about the scale of the cosmos.
 Monochrome, Helvetica, circles-as-celestial-bodies + kinetic typography.
-Runs by opening `Cosmic Scale.html` — no bundler, no install, no npm.
+Runs by opening `index.html` — no bundler, no install, no npm.
 
 ## How it runs (important)
 There is **no build step**. React 18 (UMD) and Babel Standalone are loaded from
 unpkg with pinned versions + integrity hashes. The `.tsx` files are transpiled
-**in the browser** via a Babel preset registered in `Cosmic Scale.html`:
+**in the browser** via a Babel preset registered in `index.html`:
 
 ```js
 Babel.registerPreset('tsx', {
   presets: [
-    [Babel.availablePresets.typescript, { allExtensions: true, isTSX: true }],
+    [Babel.availablePresets.typescript, { allExtensions: true, isTSX: true, onlyRemoveTypeImports: true }],
     Babel.availablePresets.react,
   ],
 });
@@ -38,7 +38,7 @@ top to reference them. Load order matters and is fixed in the HTML:
 | `bodies.tsx` | Visual primitives + palette tokens (`INK/DIM/SOFT/FAINT`, `FONT`): `Disc`, `Ring`, `Label`, `Kicker`, `Counter`, `DashLine`, `Tick`, `Starfield`, `Scene`. |
 | `scenes.tsx` | The seven scene components + `Head` (staggered headline). Each scene reads `localTime` from its `<Scene>`. |
 | `app.tsx` | `CUES` cue sheet (start/end per scene), `ScreenLabel` (timestamp for comments), mounts `<Stage>`. |
-| `Cosmic Scale.html` | Entry point + Babel TSX preset registration. |
+| `index.html` | Entry point + Babel TSX preset registration. |
 
 ## Authoring conventions
 - Canvas is fixed **1920×1080**; `Stage` auto-scales to the viewport. Use absolute px coords against that canvas.
@@ -48,9 +48,10 @@ top to reference them. Load order matters and is fixed in the HTML:
 - Bodies are CSS circles (`Disc`), never SVG illustration.
 
 ## Good next tasks
-- Rename `Cosmic Scale.html` → `index.html` for a clean GitHub Pages URL.
 - Add a 9:16 vertical variant (swap `Stage` width/height + reflow scene coords).
 - Persisted playhead lives in `localStorage` under `cosmic:t`.
+- `prefers-reduced-motion: reduce` opens paused on the title card (see `app.tsx`);
+  consider a "Reduce motion is on — press space to play" hint.
 
 ## Don't
 - Don't add a build system or convert to ES modules unless explicitly asked — it

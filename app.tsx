@@ -54,8 +54,16 @@ function CosmicFilm() {
   );
 }
 
+// Respect the OS "reduce motion" setting: open on a still title card the
+// viewer can play themselves, rather than autoplaying the film.
+const prefersReducedMotion =
+  typeof window !== 'undefined' &&
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <Stage width={1920} height={1080} duration={60} background="#0a0a0a" persistKey="cosmic">
+  <Stage width={1920} height={1080} duration={60} background="#0a0a0a"
+         persistKey="cosmic" autoplay={!prefersReducedMotion}>
     <CosmicFilm />
   </Stage>
 );

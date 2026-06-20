@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="Cosmic Scale — a 60-second, build-free sprite animation on the size and distance of the cosmos. Monochrome, Helvetica, circles-as-worlds." />
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#0a0a0a" />
 <title>Cosmic Scale</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -28,7 +31,12 @@
 </script>
 </head>
 <body>
-  <div id="root"></div>
+  <div id="root" role="img" aria-label="Cosmic Scale — an animated essay on the size and distance of the cosmos."></div>
+  <noscript>
+    <p style="color:#9a9a94;font-family:Helvetica,Arial,sans-serif;padding:24px;letter-spacing:0.04em;">
+      Cosmic Scale needs JavaScript to run. Enable it and reload to watch the film.
+    </p>
+  </noscript>
 
   <!-- TypeScript sources, transpiled at load time -->
   <script type="text/babel" data-presets="tsx" src="animations.tsx"></script>

@@ -691,7 +691,7 @@ function PlaybackBar({ time, duration, playing, onPlayPause, onReset, onSeek, on
         <div style={{
           position: 'absolute',
           left: 0, width: `${pct}%`, height: 4,
-          background: 'oklch(72% 0.12 250)',
+          background: 'rgba(246,244,239,0.85)',
           borderRadius: 2,
         }}/>
         <div style={{

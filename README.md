@@ -8,11 +8,11 @@ sources directly in the browser via a registered `typescript` + `react` preset.
 
 ## Run
 
-Open `Cosmic Scale.html` in any modern browser, or serve the folder:
+Open `index.html` in any modern browser, or serve the folder:
 
 ```bash
 python3 -m http.server 8000
-# then visit http://localhost:8000/Cosmic%20Scale.html
+# then visit http://localhost:8000/
 ```
 
 Controls: space = play/pause · ←/→ = seek · 0 = restart · drag the scrubber.
@@ -21,7 +21,7 @@ Controls: space = play/pause · ←/→ = seek · 0 = restart · drag the scrubb
 
 | File | Role |
 | --- | --- |
-| `Cosmic Scale.html` | Entry point — loads React, Babel, and the TSX sources |
+| `index.html` | Entry point — loads React, Babel, and the TSX sources |
 | `animations.tsx` | Timeline engine: `Stage`, `Sprite`, easing, scrubber |
 | `bodies.tsx` | Celestial primitives: `Disc`, `Ring`, `Label`, `Counter`, `Starfield`, `Scene` |
 | `scenes.tsx` | The seven fun-fact scenes |
