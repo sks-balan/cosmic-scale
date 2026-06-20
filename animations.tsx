@@ -454,6 +454,7 @@ function Stage({
   const playUntilRef = React.useRef<number | null>(null); // wall-time to pause at (chapter replay)
   const loopModeRef = React.useRef(loopMode); loopModeRef.current = loopMode;
   const passesRef = React.useRef<number>(0); // completed passes in the current run
+  const spotlightRef = React.useRef<HTMLDivElement | null>(null);
 
   // Persist playhead
   React.useEffect(() => {
@@ -631,8 +632,18 @@ function Stage({
   // Replay button: restart from the top and play.
   const replayAll = () => { passesRef.current = 0; seekFilm(0, { play: true }); };
 
-  // Reveal extra controls on hover; always show them while paused.
-  const revealed = barHover || !playing;
+  // Controls are hidden by default and reveal only on hover of the chrome.
+  const revealed = barHover;
+
+  // Silver "spotlight" glow that tracks the cursor across the control area.
+  const onChromeMove = React.useCallback((e: any) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    if (spotlightRef.current) {
+      spotlightRef.current.style.background =
+        `radial-gradient(260px 130px at ${x}px 60%, rgba(232,235,242,0.50), rgba(170,176,191,0.16) 42%, rgba(0,0,0,0) 72%)`;
+    }
+  }, []);
 
   const chapterMarks = chapters
     ? chapters
@@ -678,11 +689,12 @@ function Stage({
         </div>
       </div>
 
-      {/* Bottom chrome — extra controls reveal on hover (and while paused) */}
+      {/* Bottom chrome — controls reveal only on hover, with a silver spotlight */}
       <div
         onMouseEnter={() => setBarHover(true)}
         onMouseLeave={() => setBarHover(false)}
-        style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}
+        onMouseMove={onChromeMove}
+        style={{ position: 'relative', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}
       >
         {chapters && chapters.length > 0 && (
           <ChapterNav
@@ -714,6 +726,17 @@ function Stage({
           onReset={() => { passesRef.current = 0; setTime(0); }}
           onSeek={seekWall}
           onHover={(t: number | null) => setHoverTime(t)}
+        />
+
+        {/* Silver spotlight glow — follows the cursor, only while hovering */}
+        <div
+          ref={spotlightRef}
+          aria-hidden="true"
+          style={{
+            position: 'absolute', inset: 0, pointerEvents: 'none',
+            mixBlendMode: 'screen', opacity: revealed ? 1 : 0,
+            transition: 'opacity 240ms ease', zIndex: 5,
+          }}
         />
       </div>
     </div>
@@ -816,12 +839,13 @@ function PlaybackBar({ time, duration, durations, onDurationChange, marks, activ
       userSelect: 'none',
       flexShrink: 0,
     }}>
-      {/* Left cluster — revealed on hover: loop · replay · restart */}
+      {/* Left cluster — revealed on hover: loop · replay · restart.
+          Reserves its width always so the scrub track never resizes. */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden',
-        maxWidth: revealed ? 160 : 0, opacity: revealed ? 1 : 0,
+        display: 'flex', alignItems: 'center', gap: 6,
+        opacity: revealed ? 1 : 0,
         pointerEvents: revealed ? 'auto' : 'none',
-        transition: 'max-width 260ms ease, opacity 200ms ease',
+        transition: 'opacity 220ms ease',
       }}>
         {loopMode && onLoopCycle && <LoopButton mode={loopMode} onClick={onLoopCycle} />}
         {onReplayAll && (
@@ -852,16 +876,15 @@ function PlaybackBar({ time, duration, durations, onDurationChange, marks, activ
         )}
       </IconButton>
 
-      {/* Current time — revealed on hover */}
+      {/* Current time — revealed on hover (fixed width; track stays put) */}
       <div style={{
         fontFamily: mono,
         fontSize: 12,
         fontVariantNumeric: 'tabular-nums',
         width: 64, textAlign: 'right',
-        color: '#f6f4ef', overflow: 'hidden',
-        maxWidth: revealed ? 64 : 0,
+        color: '#f6f4ef',
         opacity: revealed ? 1 : 0,
-        transition: 'max-width 260ms ease, opacity 200ms ease',
+        transition: 'opacity 220ms ease',
       }}>
         {fmt(time)}
       </div>
@@ -920,15 +943,15 @@ function PlaybackBar({ time, duration, durations, onDurationChange, marks, activ
         }}/>
       </div>
 
-      {/* Total length — revealed on hover */}
+      {/* Total length — revealed on hover (toggle-in-place button) */}
       <div style={{
-        display: 'flex', alignItems: 'center', overflow: 'hidden',
-        maxWidth: revealed ? 200 : 0, opacity: revealed ? 1 : 0,
+        display: 'flex', alignItems: 'center',
+        opacity: revealed ? 1 : 0,
         pointerEvents: revealed ? 'auto' : 'none',
-        transition: 'max-width 260ms ease, opacity 200ms ease',
+        transition: 'opacity 220ms ease',
       }}>
         {durations && durations.length > 0 && onDurationChange ? (
-          <DurationSelect value={duration} options={durations} onChange={onDurationChange} />
+          <DurationToggle value={duration} options={durations} onChange={onDurationChange} />
         ) : (
           <div style={{
             fontFamily: mono,
@@ -1062,46 +1085,36 @@ function ChapterNav({ chapters, active, mode, revealed = true, onSelect, onRepla
   );
 }
 
-// ── Length selector: pick how long the whole timeline plays over ─────────────
+// ── Length toggle: cycle 1m / 2m / 3m in place ───────────────────────────────
 
-interface DurationSelectProps {
+interface DurationToggleProps {
   value: number;
   options: number[];
   onChange: (d: number) => void;
 }
 
-function DurationSelect({ value, options, onChange }: DurationSelectProps) {
+function DurationToggle({ value, options, onChange }: DurationToggleProps) {
   const label = (secs: number): string =>
     secs % 60 === 0
       ? `${secs / 60}m`
       : `${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}`;
+  const cycle = () => onChange(options[(options.indexOf(value) + 1) % options.length]);
   return (
-    <div role="group" aria-label="Total length" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-      {options.map((opt) => {
-        const active = opt === value;
-        return (
-          <button
-            key={opt}
-            onClick={() => onChange(opt)}
-            title={`Play the film over ${label(opt)}`}
-            aria-pressed={active}
-            style={{
-              minWidth: 32, height: 24, padding: '0 8px',
-              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-              fontSize: 12, fontWeight: 600, letterSpacing: '0.04em',
-              background: active ? 'rgba(246,244,239,0.16)' : 'transparent',
-              border: `1px solid ${active ? 'rgba(246,244,239,0.40)' : 'rgba(255,255,255,0.12)'}`,
-              borderRadius: 6,
-              color: active ? '#f6f4ef' : 'rgba(246,244,239,0.55)',
-              cursor: 'pointer',
-              transition: 'background 120ms, color 120ms, border-color 120ms',
-            }}
-          >
-            {label(opt)}
-          </button>
-        );
-      })}
-    </div>
+    <button
+      onClick={cycle}
+      title={`Length ${label(value)} — click to change`}
+      aria-label={`Playback length ${label(value)}`}
+      style={{
+        minWidth: 34, height: 28, padding: '0 8px',
+        fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+        fontSize: 12, fontWeight: 600, letterSpacing: '0.04em',
+        background: 'rgba(255,255,255,0.08)',
+        border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6,
+        color: '#f6f4ef', cursor: 'pointer',
+      }}
+    >
+      {label(value)}
+    </button>
   );
 }
 

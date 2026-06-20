@@ -19,11 +19,14 @@ Controls: space = play/pause · ←/→ = seek · 0 = restart · drag the scrubb
 `1m` / `2m` / `3m` set how long the whole film plays over · 🔊 toggles the
 generated soundtrack.
 
-The chrome stays minimal during playback — only play/pause, the progress bar,
-and the sound toggle are shown. **Hover** the control area (or pause) to reveal
-everything else: the loop, replay, restart and length buttons, the timecode,
-and the chapter nav. To the left of play sit a **loop** button (cycles play
-once → 3× → ∞) and a **replay** button (restart from the top).
+The chrome stays minimal — only play/pause, the progress bar, and the sound
+toggle are shown by default. **Hover** the control area to reveal everything
+else (loop, replay, restart, the timecode, the length toggle, and the chapter
+nav), lit by a silver spotlight that follows the cursor. The progress bar keeps
+a fixed size — controls only fade, they never push it. To the left of play sit
+a **loop** button (cycles play once → 3× → ∞ in place) and a **replay** button
+(restart from the top); the length control is a single button that toggles
+`1m → 2m → 3m` in place.
 
 ### Watch vs. explore
 

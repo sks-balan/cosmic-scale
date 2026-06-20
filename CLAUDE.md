@@ -65,13 +65,20 @@ the film never loops once `chapters` is set.
   `toWall`, so chapters work unchanged at any selected playback length.
 
 ## Chrome & controls (in `animations.tsx`)
-- **Minimal by default**: during playback only play/pause, the scrub track, and the
-  mute toggle (in the canvas) are shown. `revealed = barHover || !playing` gates
-  the rest — the left cluster (loop · replay · restart), timecode, length buttons,
-  and `ChapterNav` — fading/collapsing them until you hover the control area or pause.
-- **Loop** (`loopModes={['once','three','inf']}`) cycles play-once / 3× / ∞ via
-  `loopModeRef` + `passesRef`, read in the rAF loop's end-of-pass handler. **Replay**
-  (`onReplayAll`) restarts from 0 and plays. Both are icon buttons left of play.
+- **Minimal by default**: only play/pause, the scrub track, and the mute toggle (in
+  the canvas) are shown. `revealed = barHover` gates the rest — the left cluster
+  (loop · replay · restart), timecode, length toggle, and `ChapterNav` — and reveal
+  is **hover-only** (not on pause).
+- **No reflow**: gated groups fade with `opacity` only (they keep their reserved
+  width), so the scrub track never resizes when controls hide/show. Don't reintroduce
+  `max-width`/`display` collapsing here.
+- **Silver spotlight**: a cursor-tracking `radial-gradient` layer with
+  `mix-blend-mode: screen` (`spotlightRef`, updated in `onChromeMove` via direct DOM
+  writes — no per-move React render) glows the controls under the pointer on hover.
+- **Toggle-in-place controls**: `LoopButton` cycles play-once / 3× / ∞ (badge), and
+  `DurationToggle` cycles the `durations` in one button — both single buttons, not
+  segmented rows. Loop behaviour is read in the rAF end-of-pass handler via
+  `loopModeRef` + `passesRef`; **Replay** (`onReplayAll`) restarts from 0 and plays.
 
 ## Good next tasks
 - Add a 9:16 vertical variant (swap `Stage` width/height + reflow scene coords).
