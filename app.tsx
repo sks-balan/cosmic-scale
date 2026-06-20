@@ -38,18 +38,18 @@ const CHAPTERS = [
   { label: 'Closing',           start: 53, end: 60, poster: 58 },
 ];
 
-// Generative score, in the key of D — one harmony per scene, building an arc
-// (D · D · A · Bm · G · Em) that resolves home to D at the close. `at` is
-// film-time, so it tracks the scenes at any playback length. Synthesized in
-// audio.tsx; no audio files.
+// Generative score, in the key of D — a chord progression the soundtrack
+// drifts through on its own slow clock (D · D · A · Bm · G · Em · D),
+// independent of the chapter and the playhead. Synthesized in audio.tsx;
+// no audio files.
 const SCORE = [
-  { at: 0,  root: 73.42,  pad: [146.83, 220.00, 329.63], notes: [293.66, 329.63, 440.00, 220.00] }, // D
-  { at: 6,  root: 73.42,  pad: [146.83, 185.00, 220.00], notes: [293.66, 369.99, 440.00, 329.63] }, // D maj
-  { at: 16, root: 110.00, pad: [220.00, 277.18, 329.63], notes: [440.00, 329.63, 554.37, 277.18] }, // A
-  { at: 25, root: 123.47, pad: [123.47, 146.83, 185.00], notes: [293.66, 369.99, 246.94, 185.00] }, // B min
-  { at: 33, root: 98.00,  pad: [196.00, 246.94, 293.66], notes: [392.00, 293.66, 246.94, 196.00] }, // G
-  { at: 42, root: 82.41,  pad: [164.81, 196.00, 246.94], notes: [329.63, 392.00, 246.94, 164.81] }, // E min
-  { at: 53, root: 73.42,  pad: [146.83, 220.00, 329.63], notes: [293.66, 220.00, 329.63, 369.99] }, // D resolve
+  { root: 73.42,  pad: [146.83, 220.00, 329.63], notes: [293.66, 329.63, 440.00, 220.00] }, // D
+  { root: 73.42,  pad: [146.83, 185.00, 220.00], notes: [293.66, 369.99, 440.00, 329.63] }, // D maj
+  { root: 110.00, pad: [220.00, 277.18, 329.63], notes: [440.00, 329.63, 554.37, 277.18] }, // A
+  { root: 123.47, pad: [123.47, 146.83, 185.00], notes: [293.66, 369.99, 246.94, 185.00] }, // B min
+  { root: 98.00,  pad: [196.00, 246.94, 293.66], notes: [392.00, 293.66, 246.94, 196.00] }, // G
+  { root: 82.41,  pad: [164.81, 196.00, 246.94], notes: [329.63, 392.00, 246.94, 164.81] }, // E min
+  { root: 73.42,  pad: [146.83, 220.00, 329.63], notes: [293.66, 220.00, 329.63, 369.99] }, // D resolve
 ];
 
 // Writes a per-second timestamp onto the video root so comments can be

@@ -37,7 +37,7 @@ top to reference them. Load order matters and is fixed in the HTML:
 | `animations.tsx` | Timeline engine: `Stage`, `Sprite`, `useTime`/`useSprite`, `Easing`, `interpolate`, `animate`, `clamp`, scrubber/playback, `ChapterNav`. Reusable starter — avoid gratuitous edits. |
 | `bodies.tsx` | Visual primitives + palette tokens (`INK/DIM/SOFT/FAINT`, `FONT`): `Disc`, `Ring`, `Label`, `Kicker`, `Counter`, `DashLine`, `Tick`, `Starfield`, `Scene`. |
 | `scenes.tsx` | The seven scene components + `Head` (staggered headline). Each scene reads `localTime` from its `<Scene>`. |
-| `audio.tsx` | `AudioTrack` — generative Web Audio soundtrack (synthesized, no files). Harmony follows film-time via `SCORE` in `app.tsx`. |
+| `audio.tsx` | `AudioTrack` — generative Web Audio soundtrack (synthesized, no files). Harmony drifts through `SCORE` (in `app.tsx`) on its own slow timer, **independent of the playhead/chapter** — it only reads `playing`, never `time`. |
 | `app.tsx` | `CUES` cue sheet, `CHAPTERS`, `SCORE`, `ScreenLabel`, mounts `<Stage>`. |
 | `index.html` | Entry point + Babel TSX preset registration. |
 

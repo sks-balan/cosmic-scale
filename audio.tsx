@@ -13,7 +13,6 @@ declare const useTimeline: () => { time: number; duration: number; playing: bool
 declare const INK: string;
 
 interface ScoreStop {
-  at: number;       // film-time (seconds) this harmony takes over
   root: number;     // drone fundamental (Hz)
   pad: number[];    // three sustained chord tones (Hz)
   notes: number[];  // pool the sparse melody draws from (Hz)
@@ -53,7 +52,9 @@ function osc(ctx: any, type: string, freq: number): any {
 interface AudioTrackProps { score: ScoreStop[]; level?: number; }
 
 function AudioTrack({ score, level = 0.2 }: AudioTrackProps) {
-  const { time, playing } = useTimeline();
+  // Only `playing` is read — never the playhead — so the soundtrack is
+  // independent of the chapter and the scrub/hover cursor position.
+  const { playing } = useTimeline();
 
   const [enabled, setEnabled] = React.useState<boolean>(() => {
     try { return localStorage.getItem('cosmic:audio') === '1'; } catch { return false; }
@@ -62,11 +63,12 @@ function AudioTrack({ score, level = 0.2 }: AudioTrackProps) {
   // graph + scheduler live in a ref so re-renders never rebuild the audio
   const S = React.useRef<any>(null);
 
-  // active harmony index from film-time (scenes are contiguous)
-  let idx = 0;
-  for (let i = 0; i < score.length; i++) if (time >= score[i].at) idx = i;
-  const idxRef = React.useRef<number>(0);
-  idxRef.current = idx;
+  // The soundtrack runs on its own slow clock: the harmony drifts through
+  // `score` on a timer, independent of the chapter and the playhead. Scrubbing,
+  // hovering the scrubber, or jumping chapters never disturbs it.
+  const [harmonyIndex, setHarmonyIndex] = React.useState<number>(0);
+  const harmonyRef = React.useRef<number>(0);
+  harmonyRef.current = harmonyIndex;
 
   // Build the audio graph once, on first enable (inside a user gesture).
   const ensureGraph = React.useCallback(() => {
@@ -86,7 +88,7 @@ function AudioTrack({ score, level = 0.2 }: AudioTrackProps) {
     reverb.connect(reverbGain);
     reverbGain.connect(master);
 
-    const sc = score[idxRef.current];
+    const sc = score[harmonyRef.current];
 
     // drone: fundamental + a fifth, lightly detuned, mostly dry
     const droneGain = ctx.createGain();
@@ -133,7 +135,7 @@ function AudioTrack({ score, level = 0.2 }: AudioTrackProps) {
   // sparse melody, self-scheduled on the audio clock (robust to scrubbing)
   const playNote = React.useCallback((st: any, when: number) => {
     if (Math.random() < 0.22) return; // breathe
-    const notes = score[idxRef.current].notes;
+    const notes = score[harmonyRef.current].notes;
     st.step = (st.step + 1) % notes.length;
     let f = notes[st.step];
     if (Math.random() < 0.25) f *= 2; // occasional sparkle an octave up
@@ -162,16 +164,23 @@ function AudioTrack({ score, level = 0.2 }: AudioTrackProps) {
 
   const stopSched = (st: any) => { if (st && st.sched) { clearInterval(st.sched); st.sched = null; } };
 
-  // Glide drone + pad to the active scene's harmony.
+  // Glide drone + pad whenever the harmony advances.
   React.useEffect(() => {
     const st = S.current;
     if (!st) return;
-    const sc = score[idx];
+    const sc = score[harmonyIndex];
     const ct = st.ctx.currentTime, tc = 0.9;
     st.d1.frequency.setTargetAtTime(sc.root, ct, tc);
     st.d2.frequency.setTargetAtTime(sc.root * 1.5, ct, tc);
     st.pads.forEach((o: any, i: number) => o.frequency.setTargetAtTime(sc.pad[i % sc.pad.length], ct, tc));
-  }, [idx, score]);
+  }, [harmonyIndex, score]);
+
+  // Advance the harmony on its own slow clock while sound is on.
+  React.useEffect(() => {
+    if (!enabled) return;
+    const id = setInterval(() => setHarmonyIndex((i) => (i + 1) % score.length), 15000);
+    return () => clearInterval(id);
+  }, [enabled, score.length]);
 
   // Enable / play-state → fade master, run or stop the scheduler.
   React.useEffect(() => {

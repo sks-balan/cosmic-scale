@@ -910,14 +910,15 @@ function PlaybackBar({ time, duration, durations, onDurationChange, marks, activ
         <div style={{
           position: 'absolute',
           left: 0, right: 0, height: 4,
-          background: 'rgba(255,255,255,0.12)',
+          background: 'rgba(255,255,255,0.08)',
           borderRadius: 2,
         }}/>
         <div style={{
           position: 'absolute',
           left: 0, width: `${pct}%`, height: 4,
-          background: 'rgba(246,244,239,0.85)',
+          background: revealed ? 'rgba(246,244,239,0.5)' : 'rgba(246,244,239,0.24)',
           borderRadius: 2,
+          transition: 'background 220ms ease',
         }}/>
         {marks && marks.map((m) => (
           <div
@@ -928,7 +929,7 @@ function PlaybackBar({ time, duration, durations, onDurationChange, marks, activ
               position: 'absolute', left: `${m.pct * 100}%`, top: '50%',
               width: 8, height: 8, marginLeft: -4, marginTop: -4,
               borderRadius: '50%',
-              background: m.index === activeMark ? '#fff' : 'rgba(246,244,239,0.5)',
+              background: m.index === activeMark ? 'rgba(246,244,239,0.55)' : 'rgba(246,244,239,0.3)',
               boxShadow: '0 0 0 2px rgba(20,20,20,0.92)',
               cursor: 'pointer', zIndex: 2,
             }}
@@ -937,11 +938,12 @@ function PlaybackBar({ time, duration, durations, onDurationChange, marks, activ
         <div style={{
           position: 'absolute',
           left: `${pct}%`, top: '50%',
-          width: 12, height: 12,
-          marginLeft: -6, marginTop: -6,
-          background: '#fff',
-          borderRadius: 6,
-          boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
+          width: 11, height: 11,
+          marginLeft: -5.5, marginTop: -5.5,
+          background: revealed ? 'rgba(246,244,239,0.8)' : 'rgba(246,244,239,0.42)',
+          borderRadius: '50%',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
+          transition: 'background 220ms ease',
           zIndex: 3,
         }}/>
       </div>
