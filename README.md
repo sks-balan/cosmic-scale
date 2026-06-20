@@ -22,11 +22,12 @@ generated soundtrack.
 The chrome stays minimal — only play/pause, the progress bar, and the sound
 toggle are shown by default. **Hover** the control area to reveal everything
 else (loop, replay, restart, the timecode, the length toggle, and the chapter
-nav), lit by a silver spotlight that follows the cursor. The progress bar keeps
+nav), lit by a silver spotlight centered on the cursor. The progress bar keeps
 a fixed size — controls only fade, they never push it. To the left of play sit
 a **loop** button (cycles play once → 3× → ∞ in place) and a **replay** button
 (restart from the top); the length control is a single button that toggles
-`1m → 2m → 3m` in place.
+`1m → 2m → 3m` in place. Top-right, next to the sound toggle, a **full-screen**
+button reveals on hover (with its own spotlight).
 
 ### Watch vs. explore
 

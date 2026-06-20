@@ -635,13 +635,16 @@ function Stage({
   // Controls are hidden by default and reveal only on hover of the chrome.
   const revealed = barHover;
 
-  // Silver "spotlight" glow that tracks the cursor across the control area.
+  // Silver "spotlight" glow centered on the cursor across the control area.
+  // Percent positions keep the glow under the pointer regardless of the
+  // element's size/scale, and track both axes.
   const onChromeMove = React.useCallback((e: any) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
+    const r = e.currentTarget.getBoundingClientRect();
+    const px = r.width ? ((e.clientX - r.left) / r.width) * 100 : 50;
+    const py = r.height ? ((e.clientY - r.top) / r.height) * 100 : 50;
     if (spotlightRef.current) {
       spotlightRef.current.style.background =
-        `radial-gradient(260px 130px at ${x}px 60%, rgba(232,235,242,0.50), rgba(170,176,191,0.16) 42%, rgba(0,0,0,0) 72%)`;
+        `radial-gradient(240px 150px at ${px}% ${py}%, rgba(232,235,242,0.50), rgba(170,176,191,0.16) 42%, rgba(0,0,0,0) 72%)`;
     }
   }, []);
 

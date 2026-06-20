@@ -72,9 +72,15 @@ the film never loops once `chapters` is set.
 - **No reflow**: gated groups fade with `opacity` only (they keep their reserved
   width), so the scrub track never resizes when controls hide/show. Don't reintroduce
   `max-width`/`display` collapsing here.
-- **Silver spotlight**: a cursor-tracking `radial-gradient` layer with
-  `mix-blend-mode: screen` (`spotlightRef`, updated in `onChromeMove` via direct DOM
-  writes — no per-move React render) glows the controls under the pointer on hover.
+- **Silver spotlight**: a `radial-gradient` layer with `mix-blend-mode: screen`
+  (`spotlightRef`, updated via direct DOM writes — no per-move React render) glows
+  the controls under the pointer on hover. Position uses **percent** coords
+  (`at px% py%`) so it stays centered on the cursor in both axes and is
+  scale-invariant inside the transformed canvas.
+- **Corner controls** (`CornerControls` in `app.tsx`): a top-right cluster holding
+  the always-on sound toggle (`AudioTrack`, now a flex item) plus a hover-revealed
+  full-screen button, sharing the same cursor-centered spotlight. Full-screen toggles
+  `document.documentElement.requestFullscreen()` / `exitFullscreen()`.
 - **Toggle-in-place controls**: `LoopButton` cycles play-once / 3× / ∞ (badge), and
   `DurationToggle` cycles the `durations` in one button — both single buttons, not
   segmented rows. Loop behaviour is read in the rAF end-of-pass handler via

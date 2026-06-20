@@ -220,13 +220,13 @@ function AudioTrack({ score, level = 0.2 }: AudioTrackProps) {
       aria-label={enabled ? 'Mute soundtrack' : 'Play soundtrack'}
       title={enabled ? 'Mute soundtrack' : 'Play soundtrack'}
       style={{
-        position: 'absolute', top: 32, right: 32,
+        flexShrink: 0,
         width: 48, height: 48, borderRadius: '50%',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: enabled ? 'rgba(243,242,236,0.12)' : 'rgba(243,242,236,0.04)',
         border: `1px solid rgba(243,242,236,${enabled ? 0.32 : 0.16})`,
         color: INK, opacity: enabled ? 0.95 : 0.6,
-        cursor: 'pointer', zIndex: 5, padding: 0,
+        cursor: 'pointer', padding: 0,
         transition: 'background 160ms, opacity 160ms, border-color 160ms',
       }}
     >

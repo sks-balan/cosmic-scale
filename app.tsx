@@ -64,6 +64,88 @@ function ScreenLabel() {
   return null;
 }
 
+// Top-right corner cluster: a full-screen toggle (reveals on hover) sitting
+// next to the always-on sound toggle, sharing a cursor-centered silver
+// spotlight — matching the bottom chrome's hover behaviour.
+function CornerControls({ children }: { children: React.ReactNode }) {
+  const [hover, setHover] = React.useState(false);
+  const [fs, setFs] = React.useState(false);
+  const spotRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    const onFs = () => setFs(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFs);
+    return () => document.removeEventListener('fullscreenchange', onFs);
+  }, []);
+
+  const toggleFs = () => {
+    if (document.fullscreenElement) {
+      if (document.exitFullscreen) document.exitFullscreen();
+    } else {
+      const req = document.documentElement.requestFullscreen;
+      if (req) req.call(document.documentElement).catch(() => {});
+    }
+  };
+
+  // Center the spotlight on the cursor (percent positions are scale-invariant).
+  const onMove = (e: any) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const px = r.width ? ((e.clientX - r.left) / r.width) * 100 : 50;
+    const py = r.height ? ((e.clientY - r.top) / r.height) * 100 : 50;
+    if (spotRef.current) {
+      spotRef.current.style.background =
+        `radial-gradient(150px 150px at ${px}% ${py}%, rgba(232,235,242,0.5), rgba(170,176,191,0.16) 45%, rgba(0,0,0,0) 72%)`;
+    }
+  };
+
+  return (
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onMouseMove={onMove}
+      style={{ position: 'absolute', top: 32, right: 32, display: 'flex', alignItems: 'center', gap: 12, zIndex: 6 }}
+    >
+      <button
+        onClick={toggleFs}
+        aria-label={fs ? 'Exit full screen' : 'Full screen'}
+        title={fs ? 'Exit full screen' : 'Full screen'}
+        style={{
+          flexShrink: 0,
+          width: 48, height: 48, borderRadius: '50%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(243,242,236,0.06)',
+          border: '1px solid rgba(243,242,236,0.18)',
+          color: '#f3f2ec',
+          opacity: hover ? 0.9 : 0,
+          pointerEvents: hover ? 'auto' : 'none',
+          cursor: 'pointer', padding: 0,
+          transition: 'opacity 220ms ease, background 160ms',
+        }}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          {fs ? (
+            <path d="M9 4v3a2 2 0 0 1-2 2H4M20 9h-3a2 2 0 0 1-2-2V4M4 15h3a2 2 0 0 1 2 2v3M15 20v-3a2 2 0 0 1 2-2h3"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          ) : (
+            <path d="M4 9V6a2 2 0 0 1 2-2h3M20 9V6a2 2 0 0 0-2-2h-3M4 15v3a2 2 0 0 0 2 2h3M20 15v3a2 2 0 0 1-2 2h-3"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          )}
+        </svg>
+      </button>
+      {children}
+      <div
+        ref={spotRef}
+        aria-hidden="true"
+        style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          mixBlendMode: 'screen', opacity: hover ? 1 : 0,
+          transition: 'opacity 220ms ease', zIndex: 3,
+        }}
+      />
+    </div>
+  );
+}
+
 function CosmicFilm() {
   return (
     <React.Fragment>
@@ -73,7 +155,9 @@ function CosmicFilm() {
           {(ctx: SceneCtx) => <Comp {...ctx} />}
         </Scene>
       ))}
-      <AudioTrack score={SCORE} />
+      <CornerControls>
+        <AudioTrack score={SCORE} />
+      </CornerControls>
       <ScreenLabel />
     </React.Fragment>
   );
