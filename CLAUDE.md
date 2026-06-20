@@ -43,7 +43,8 @@ top to reference them. Load order matters and is fixed in the HTML:
 ## Authoring conventions
 - Canvas is fixed **1920×1080**; `Stage` auto-scales to the viewport. Use absolute px coords against that canvas.
 - Animate from `localTime` (seconds since a scene started). Helper: `env(t, t0, dur)` clamps a 0→1 ramp; `eo(...)` is the eased version. Easing lib is `Easing.*`.
-- Timeline total is **60s**, defined by `<Stage duration={60}>` and the windows in `CUES`. To retime a scene, edit its `CUES` entry **and** the internal `t0` offsets.
+- The **authored** timeline is **60s** (`Stage`'s `timelineDuration`), defined by the windows in `CUES` + each scene's internal `t0` offsets. To retime a scene, edit its `CUES` entry **and** the internal `t0` offsets — always in authored seconds.
+- **Playback length is user-selectable** (`durations={[60,120,180]}` in `app.tsx`, surfaced as the `1m/2m/3m` control). The engine *time-stretches* the authored 60s onto the chosen wall-clock length — scene code never changes. Internally `time` advances in wall-clock; `Stage` maps it back to authored seconds before scenes see it, so everything (motion, twinkle, counters) slows uniformly.
 - Palette is strictly monochrome grays on `#0a0a0a`. Don't introduce hues.
 - Bodies are CSS circles (`Disc`), never SVG illustration.
 

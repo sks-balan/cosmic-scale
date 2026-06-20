@@ -383,7 +383,9 @@ function RectSprite({
 interface StageProps {
   width?: number;
   height?: number;
-  duration?: number;
+  duration?: number;          // initial playback (wall-clock) length
+  timelineDuration?: number;  // authored timeline length scenes are written against (defaults to `duration`)
+  durations?: number[];       // selectable playback lengths; shows a length control in the bar
   background?: string;
   fps?: number;
   loop?: boolean;
@@ -395,7 +397,9 @@ interface StageProps {
 function Stage({
   width = 1280,
   height = 720,
-  duration = 10,
+  duration: baseDuration = 10,
+  timelineDuration,
+  durations,
   background = '#f6f4ef',
   fps = 60,
   loop = true,
@@ -403,6 +407,18 @@ function Stage({
   persistKey = 'animstage',
   children,
 }: StageProps) {
+  // Authored timeline length the scenes are written against — constant.
+  const timeline = timelineDuration ?? baseDuration;
+
+  // Playback (wall-clock) length — user-selectable when `durations` is given.
+  const [duration, setDuration] = React.useState<number>(() => {
+    try {
+      const v = parseFloat(localStorage.getItem(persistKey + ':d') || '');
+      if (durations && durations.indexOf(v) !== -1) return v;
+    } catch {}
+    return baseDuration;
+  });
+
   const [time, setTime] = React.useState<number>(() => {
     try {
       const v = parseFloat(localStorage.getItem(persistKey + ':t') || '0');
@@ -422,6 +438,17 @@ function Stage({
   React.useEffect(() => {
     try { localStorage.setItem(persistKey + ':t', String(time)); } catch {}
   }, [time, persistKey]);
+
+  // Persist the chosen playback length
+  React.useEffect(() => {
+    try { localStorage.setItem(persistKey + ':d', String(duration)); } catch {}
+  }, [duration, persistKey]);
+
+  // Change total length while holding the same point in the film.
+  const changeDuration = React.useCallback((next: number) => {
+    setTime((t: number) => (duration > 0 ? clamp(t * (next / duration), 0, next) : 0));
+    setDuration(next);
+  }, [duration]);
 
   // Auto-scale to fit viewport
   React.useEffect(() => {
@@ -494,9 +521,15 @@ function Stage({
 
   const displayTime = hoverTime != null ? hoverTime : time;
 
+  // Stretch wall-clock time onto the authored timeline: a 60s film played
+  // over 180s advances its `timeline` seconds three times slower. Scenes,
+  // written against `timeline`, never change.
+  const timeScale = duration > 0 ? timeline / duration : 1;
+  const filmTime = displayTime * timeScale;
+
   const ctxValue = React.useMemo(
-    () => ({ time: displayTime, duration, playing, setTime, setPlaying }),
-    [displayTime, duration, playing]
+    () => ({ time: filmTime, duration: timeline, playing, setTime, setPlaying }),
+    [filmTime, timeline, playing]
   );
 
   return (
@@ -542,6 +575,8 @@ function Stage({
         time={displayTime}
         actualTime={time}
         duration={duration}
+        durations={durations}
+        onDurationChange={changeDuration}
         playing={playing}
         onPlayPause={() => setPlaying((p: boolean) => !p)}
         onReset={() => { setTime(0); }}
@@ -558,6 +593,8 @@ interface PlaybackBarProps {
   time: number;
   actualTime?: number;
   duration: number;
+  durations?: number[];
+  onDurationChange?: (d: number) => void;
   playing: boolean;
   onPlayPause: () => void;
   onReset: () => void;
@@ -565,7 +602,7 @@ interface PlaybackBarProps {
   onHover: (t: number | null) => void;
 }
 
-function PlaybackBar({ time, duration, playing, onPlayPause, onReset, onSeek, onHover }: PlaybackBarProps) {
+function PlaybackBar({ time, duration, durations, onDurationChange, playing, onPlayPause, onReset, onSeek, onHover }: PlaybackBarProps) {
   const trackRef = React.useRef<HTMLDivElement | null>(null);
   const [dragging, setDragging] = React.useState<boolean>(false);
 
@@ -676,6 +713,7 @@ function PlaybackBar({ time, duration, playing, onPlayPause, onReset, onSeek, on
         onMouseDown={onTrackDown}
         style={{
           flex: 1,
+          minWidth: 0,
           height: 22,
           position: 'relative',
           cursor: 'pointer',
@@ -705,16 +743,63 @@ function PlaybackBar({ time, duration, playing, onPlayPause, onReset, onSeek, on
         }}/>
       </div>
 
-      {/* Duration: fixed width */}
-      <div style={{
-        fontFamily: mono,
-        fontSize: 12,
-        fontVariantNumeric: 'tabular-nums',
-        width: 64, textAlign: 'left',
-        color: 'rgba(246,244,239,0.55)',
-      }}>
-        {fmt(duration)}
-      </div>
+      {/* Total length: a selector when `durations` is given, else a readout */}
+      {durations && durations.length > 0 && onDurationChange ? (
+        <DurationSelect value={duration} options={durations} onChange={onDurationChange} />
+      ) : (
+        <div style={{
+          fontFamily: mono,
+          fontSize: 12,
+          fontVariantNumeric: 'tabular-nums',
+          width: 64, textAlign: 'left',
+          color: 'rgba(246,244,239,0.55)',
+        }}>
+          {fmt(duration)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Length selector: pick how long the whole timeline plays over ─────────────
+
+interface DurationSelectProps {
+  value: number;
+  options: number[];
+  onChange: (d: number) => void;
+}
+
+function DurationSelect({ value, options, onChange }: DurationSelectProps) {
+  const label = (secs: number): string =>
+    secs % 60 === 0
+      ? `${secs / 60}m`
+      : `${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}`;
+  return (
+    <div role="group" aria-label="Total length" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      {options.map((opt) => {
+        const active = opt === value;
+        return (
+          <button
+            key={opt}
+            onClick={() => onChange(opt)}
+            title={`Play the film over ${label(opt)}`}
+            aria-pressed={active}
+            style={{
+              minWidth: 32, height: 24, padding: '0 8px',
+              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+              fontSize: 12, fontWeight: 600, letterSpacing: '0.04em',
+              background: active ? 'rgba(246,244,239,0.16)' : 'transparent',
+              border: `1px solid ${active ? 'rgba(246,244,239,0.40)' : 'rgba(255,255,255,0.12)'}`,
+              borderRadius: 6,
+              color: active ? '#f6f4ef' : 'rgba(246,244,239,0.55)',
+              cursor: 'pointer',
+              transition: 'background 120ms, color 120ms, border-color 120ms',
+            }}
+          >
+            {label(opt)}
+          </button>
+        );
+      })}
     </div>
   );
 }

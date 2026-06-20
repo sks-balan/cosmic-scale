@@ -62,8 +62,9 @@ const prefersReducedMotion =
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <Stage width={1920} height={1080} duration={60} background="#0a0a0a"
-         persistKey="cosmic" autoplay={!prefersReducedMotion}>
+  <Stage width={1920} height={1080}
+         duration={60} timelineDuration={60} durations={[60, 120, 180]}
+         background="#0a0a0a" persistKey="cosmic" autoplay={!prefersReducedMotion}>
     <CosmicFilm />
   </Stage>
 );

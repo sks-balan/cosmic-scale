@@ -15,7 +15,8 @@ python3 -m http.server 8000
 # then visit http://localhost:8000/
 ```
 
-Controls: space = play/pause · ←/→ = seek · 0 = restart · drag the scrubber.
+Controls: space = play/pause · ←/→ = seek · 0 = restart · drag the scrubber ·
+`1m` / `2m` / `3m` set how long the whole film plays over.
 
 ## Structure
 
